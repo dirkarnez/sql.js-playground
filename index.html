@@ -4,28 +4,92 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<script src='./sql-wasm.js'></script>
+<!-- <script src='./sql-wasm.js'></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reflect-metadata/0.2.2/Reflect.min.js" integrity="sha512-qidytWbev88NYt9i3e74xHoTnb9iH+n6INMHLwT2vHDD4pg2tWo9Zy8ZH2OJN3287DtIo2yZxJr6EnEvQCbWoA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js" integrity="sha512-+6Q7hv5pGUBXOuHWw8OdQx3ac7DzM3oJhYqz7SHDku0yl9EBdMqegoPed4GsHRoNF/VQYK2LTYewAIEBrEf/3w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <script>
-    config = {
-        locateFile: filename => `./${filename}`
-    }
+    Promise.all([
+        initSqlJs({ locateFile: filename => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${filename}` }), 
+        fetch("./typeorm.0.3.20.min.js").then(resp => resp.text())
+    ])
+    .then(values => {
+        // typeorm works only with window.SQL
+        window.SQL = values[0];
+        eval(values[1]);
 
-    // The `initSqlJs` function is globally provided by all of the main dist files if loaded in the browser.
-    // We must specify this locateFile function if we are loading a wasm file from anywhere other than the current html page's folder.
-    initSqlJs(config).then(function (SQL) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', './Chinook_Sqlite.sqlite', true);
-        xhr.responseType = 'arraybuffer';
+        //var db = new SQL.Database();
 
-        xhr.onload = e => {
-            var uInt8Array = new Uint8Array(xhr.response);
-            var db = new SQL.Database(uInt8Array);
-            var contents = db.exec("SELECT * FROM Album");
+        class User {
+            constructor(id, name) {
+                this.id = id;
+                this.name = name;
+            }
+        }
+
+        const UserSchema = new typeorm.EntitySchema({
+            name: "User",
+            target: User,
+            columns: {
+                id: {
+                    primary: true,
+                    type: "int",
+                    generated: true
+                },
+                name: {
+                    type: "varchar"
+                }
+            }
+        });
+        
+        typeorm.createConnection({
+            type: "sqljs",
+            entities: [UserSchema],
+            synchronize: true,
+            logging: true
+        })
+        .then(async connection => {
             debugger;
-            // contents is now [{columns:['col1','col2',...], values:[[first row], [second row], ...]}]
-        };
-        xhr.send();
-    });
+            const user = new User();
+            user.name = "name 123";
+
+            const userRepository = connection.getRepository(User);
+            try {
+                console.log(`before user.id ${user.id}`);
+                await userRepository.save(user);
+                console.log(`after user.id ${user.id}`);
+                debugger;
+            } catch (e) {
+                debugger;
+            }
+        })
+        .catch(e => {
+            debugger;
+        })
+
+        // // The `initSqlJs` function is globally provided by all of the main dist files if loaded in the browser.
+        // // We must specify this locateFile function if we are loading a wasm file from anywhere other than the current html page's folder.
+        // .then(function (SQL) {
+        //     /*var xhr = new XMLHttpRequest();
+        //     xhr.open('GET', './Chinook_Sqlite.sqlite', true);
+        //     xhr.responseType = 'arraybuffer';*/
+
+        //     /*
+        //     xhr.onload = e => {
+        //     */
+        //         /*
+        //         var uInt8Array = new Uint8Array(xhr.response);
+        //         */
+        //         var db = new SQL.Database(/*uInt8Array*/);
+        //         var contents = db.exec("CREATE TABLE hello (a int, b char);");
+        //         debugger;
+        //         // contents is now [{columns:['col1','col2',...], values:[[first row], [second row], ...]}]
+            
+        //     /*};*/
+        //     /*xhr.send();*/
+        // });
+    })
+    
     
 </script>
 <!-- 
